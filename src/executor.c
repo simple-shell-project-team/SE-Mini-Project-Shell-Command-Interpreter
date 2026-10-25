@@ -1,3 +1,4 @@
+
 /*
  * executor.c - fork/exec, redirection, pipelines, background jobs.
  * Owner: Member 1 (process creation, wait, exit status)
@@ -23,11 +24,6 @@
 
 #include "builtins.h"
 #include "utils.h"
-
-
-
-/* ---- Child side (Member 1 / Member 3) ---------------------------------- */
-
 
 static void exec_child(Shell *sh, const Command *c, int in_fd, int out_fd,
                        int background, int first)
