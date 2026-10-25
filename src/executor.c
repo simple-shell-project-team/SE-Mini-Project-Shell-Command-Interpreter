@@ -99,6 +99,10 @@ int execute_pipeline(Shell *sh, const Pipeline *pl)
     int n = pl->ncmds, i, prev_read = -1, forked = 0, status;
     pid_t *pids;
 
+    if (pl->ncmds == 1 && !pl->background &&
+        is_builtin(pl->cmds[0].argv[0])) {
+        return run_builtin(sh, pl->cmds[0].argc, pl->cmds[0].argv);
+    }
 
     pids = xmalloc((size_t)n * sizeof(pid_t));
     fflush(NULL);           /* avoid duplicating buffered output in children */
