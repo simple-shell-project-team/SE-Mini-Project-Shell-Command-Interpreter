@@ -63,23 +63,37 @@ static void exec_child(Shell *sh, const Command *c, int in_fd, int out_fd,
 static int wait_foreground(const pid_t *pids, int n)
 {
     int i, status = 0, last_status = 0;
+    int wait_failed = 0;
 
     for (i = 0; i < n; i++) {
-        while (waitpid(pids[i], &status, 0) < 0) {
-            if (errno == EINTR)
-                continue;
-            status = 0;
-            break;
+        pid_t result;
+
+        do {
+            result = waitpid(pids[i], &status, 0);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            shell_error("waitpid: %s", strerror(errno));
+            wait_failed = 1;
+            continue;
         }
+
         if (i == n - 1)
             last_status = status;
     }
+
+    if (wait_failed)
+        return 1;
+
     if (WIFSIGNALED(last_status) && WTERMSIG(last_status) != SIGPIPE)
         fprintf(stderr, "%s\n", strsignal(WTERMSIG(last_status)));
+
     if (WIFEXITED(last_status))
         return WEXITSTATUS(last_status);
+
     if (WIFSIGNALED(last_status))
         return 128 + WTERMSIG(last_status);
+
     return 1;
 }
 
