@@ -6,13 +6,38 @@
  *         mysh -c "command"    run one command string and exit
  *         mysh script.sh       run commands from a file
  */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 #include "shell.h"
 #include "utils.h"
+
+static void close_inherited_descriptors(void)
+{
+    long max_fd = sysconf(_SC_OPEN_MAX);
+    struct rlimit limit;
+
+    if (max_fd > 0 &&
+        getrlimit(RLIMIT_NOFILE, &limit) == 0 &&
+        limit.rlim_cur != RLIM_INFINITY &&
+        (rlim_t)max_fd > limit.rlim_cur)
+        max_fd = (long)limit.rlim_cur;
+    if (max_fd <= 0)
+        max_fd = 256;
+
+    {
+        long fd;
+        for (fd = 3; fd < max_fd; fd++)
+            (void)close((int)fd);
+    }
+}
 
 static void usage(FILE *out)
 {
@@ -35,6 +60,7 @@ int main(int argc, char **argv)
     }
 
     shell_init(&sh);
+    close_inherited_descriptors();
 
     if (argc >= 2 && strcmp(argv[1], "-c") == 0) {
         if (argc < 3) {
@@ -51,7 +77,9 @@ int main(int argc, char **argv)
             shell_error("%s: cannot open script file", argv[1]);
             return 127;
         }
-        if (fcntl(fileno(f), F_SETFD, FD_CLOEXEC) == -1) {
+        int flags = fcntl(fileno(f), F_GETFD, 0);
+        if (flags == -1 || fcntl(fileno(f), F_SETFD,
+                                 flags | FD_CLOEXEC) == -1) {
              shell_error("%s: cannot set close-on-exec", argv[1]);
              fclose(f);
              shell_cleanup(&sh);

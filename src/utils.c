@@ -2,6 +2,10 @@
  * utils.c - Shared helpers (memory, error reporting, string buffer).
  * Owner: Member 4 (Integration / Error handling)
  */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "utils.h"
 
 #include <ctype.h>

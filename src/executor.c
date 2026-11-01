@@ -7,10 +7,6 @@
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-
 #include "executor.h"
 
 #include <errno.h>
@@ -24,6 +20,30 @@
 
 #include "builtins.h"
 #include "utils.h"
+
+static int set_cloexec(int fd)
+{
+    int flags = fcntl(fd, F_GETFD, 0);
+
+    if (flags == -1)
+        return -1;
+    if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1)
+        return -1;
+    return 0;
+}
+
+static int create_pipe(int fd[2])
+{
+    if (pipe(fd) < 0)
+        return -1;
+    if (set_cloexec(fd[0]) == 0 && set_cloexec(fd[1]) == 0)
+        return 0;
+
+    close(fd[0]);
+    close(fd[1]);
+    fd[0] = fd[1] = -1;
+    return -1;
+}
 
 
 static int redirect_input(const Command *c)
@@ -325,7 +345,7 @@ int execute_pipeline(Shell *sh, const Pipeline *pl)
         pid_t pid;
 
         /* Create a pipe for every command except the last. */
-        if (i < n - 1 && pipe(fd) < 0) {
+        if (i < n - 1 && create_pipe(fd) < 0) {
             shell_error("pipe: %s", strerror(errno));
             break;
         }

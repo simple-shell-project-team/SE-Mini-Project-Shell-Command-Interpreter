@@ -5,14 +5,9 @@
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-
 #include "shell.h"
 
 #include <errno.h>
-#include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,11 +85,13 @@ int shell_execute_line(Shell *sh, const char *line)
 
 static void print_prompt(void)
 {
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof cwd))
+    char *cwd = getcwd(NULL, 0);
+    if (cwd != NULL) {
         fprintf(stderr, SHELL_NAME ":%s$ ", cwd);
-    else
+        free(cwd);
+    } else {
         fprintf(stderr, SHELL_NAME "$ ");
+    }
     fflush(stderr);
 }
 
