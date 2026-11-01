@@ -20,3 +20,22 @@ jobs:
           test -f README.md
           test -f .gitignore
           echo "Repository files verified successfully."
+
+  portability:
+    name: Ubuntu portability (C11 and C99)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and test with C11
+        run: |
+          gcc --version
+          make c11 CC=gcc
+          make test CC=gcc CPPFLAGS="-D_POSIX_C_SOURCE=200809L" CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g"
+
+      - name: Clean, build and test with C99
+        run: |
+          make c99 CC=gcc
+          make test CC=gcc CPPFLAGS="-D_POSIX_C_SOURCE=200809L" CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -g"

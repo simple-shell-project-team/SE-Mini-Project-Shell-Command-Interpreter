@@ -1,8 +1,8 @@
 # Simple Shell (mysh) - build system
 CC      ?= gcc
 AR      ?= ar
-CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
-CPPFLAGS += -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
+CFLAGS  ?= -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g
+CPPFLAGS += -D_POSIX_C_SOURCE=200809L
 
 SRC_DIR   := src
 BUILD_DIR := build
@@ -13,7 +13,7 @@ SRCS := $(filter-out $(SRC_DIR)/main.c,$(wildcard $(SRC_DIR)/*.c))
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 MAIN := $(BUILD_DIR)/main.o
 
-.PHONY: all clean test unit-test sanitize fuzz run
+.PHONY: all clean test unit-test sanitize fuzz run c11 c99 portability
 
 all: $(TARGET) $(PARSER_LIB)
 
@@ -44,6 +44,20 @@ unit-test:
 	@echo "parser not implemented yet - no unit tests to run"
 endif
 
+c11:
+	$(MAKE) clean
+	$(MAKE) CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g" all unit-test
+
+c99:
+	$(MAKE) clean
+	$(MAKE) CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -g" all unit-test
+
+portability:
+	$(MAKE) c11
+	$(MAKE) CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g" test
+	$(MAKE) c99
+	$(MAKE) CFLAGS="-std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -g" test
+
 # Functional / integration / system tests (need ./mysh)
 test: all unit-test
 	bash tests/run_tests.sh
@@ -62,8 +76,8 @@ fuzz:
 	mkdir -p build-asan
 	$(CC) $(CPPFLAGS) $(ASAN_FLAGS) -Isrc -o build-asan/fuzz_parser tests/fuzz_parser.c $(SRCS)
 	$(CC) $(CPPFLAGS) $(ASAN_FLAGS) -o build-asan/mysh $(SRC_DIR)/*.c
-	( ./build-asan/fuzz_parser || echo "SC-12 SR-06 FAIL parser fuzz aborted (sanitizer or invariant failure)" ) > tests/results_fuzz.txt
-	MYSH=$(CURDIR)/build-asan/mysh python3 tests/fuzz_shell.py >> tests/results_fuzz.txt; true
+	./build-asan/fuzz_parser > tests/results_fuzz.txt
+	MYSH=$(CURDIR)/build-asan/mysh python3 tests/fuzz_shell.py >> tests/results_fuzz.txt
 	cat tests/results_fuzz.txt
 
 run: all

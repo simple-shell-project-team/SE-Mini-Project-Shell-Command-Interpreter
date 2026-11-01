@@ -5,14 +5,9 @@
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-
 #include "builtins.h"
 
 #include <errno.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,8 +21,9 @@ extern char **environ;
 static int bi_cd(int argc, char **argv)
 {
     const char *target;
-    char oldcwd[PATH_MAX];
-    char newcwd[PATH_MAX];
+    char *oldcwd = NULL;
+    char *newcwd = NULL;
+    int oldcwd_error = 0;
     int print_dir = 0;
 
     if (argc > 2) {
@@ -52,42 +48,62 @@ static int bi_cd(int argc, char **argv)
         target = argv[1];
     }
 
-    if (getcwd(oldcwd, sizeof oldcwd) == NULL)
-        oldcwd[0] = '\0';
+    oldcwd = getcwd(NULL, 0);
+    if (oldcwd == NULL)
+        oldcwd_error = errno;
 
     if (chdir(target) != 0) {
         shell_error("cd: %s: %s", target, strerror(errno));
+        free(oldcwd);
         return 1;
     }
 
-    if (oldcwd[0] != '\0' && setenv("OLDPWD", oldcwd, 1) != 0) {
+    if (oldcwd == NULL) {
+        shell_error("cd: cannot determine previous working directory: %s",
+                    strerror(oldcwd_error));
+        return 1;
+    }
+
+    if (oldcwd != NULL && setenv("OLDPWD", oldcwd, 1) != 0) {
         shell_error("cd: cannot update OLDPWD: %s", strerror(errno));
+        free(oldcwd);
         return 1;
     }
 
-    if (getcwd(newcwd, sizeof newcwd) != NULL) {
-        if (setenv("PWD", newcwd, 1) != 0) {
-            shell_error("cd: cannot update PWD: %s", strerror(errno));
-            return 1;
-        }
-
-        if (print_dir)
-            printf("%s\n", newcwd);
+    newcwd = getcwd(NULL, 0);
+    if (newcwd == NULL) {
+        shell_error("cd: cannot determine new working directory: %s",
+                    strerror(errno));
+        free(oldcwd);
+        return 1;
     }
+
+    if (setenv("PWD", newcwd, 1) != 0) {
+        shell_error("cd: cannot update PWD: %s", strerror(errno));
+        free(oldcwd);
+        free(newcwd);
+        return 1;
+    }
+
+    if (print_dir)
+        printf("%s\n", newcwd);
+    free(newcwd);
+    free(oldcwd);
 
     return 0;
 }
 
 static int bi_pwd(void)
 {
-    char cwd[PATH_MAX];
+    char *cwd = getcwd(NULL, 0);
 
-    if (getcwd(cwd, sizeof cwd) == NULL) {
+    if (cwd == NULL) {
         shell_error("pwd: %s", strerror(errno));
         return 1;
     }
 
     printf("%s\n", cwd);
+    free(cwd);
     return 0;
 }
 
