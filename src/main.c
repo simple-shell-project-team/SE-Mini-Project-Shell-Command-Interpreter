@@ -14,9 +14,30 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 #include "shell.h"
 #include "utils.h"
+
+static void close_inherited_descriptors(void)
+{
+    long max_fd = sysconf(_SC_OPEN_MAX);
+    struct rlimit limit;
+
+    if (max_fd > 0 &&
+        getrlimit(RLIMIT_NOFILE, &limit) == 0 &&
+        limit.rlim_cur != RLIM_INFINITY &&
+        (rlim_t)max_fd > limit.rlim_cur)
+        max_fd = (long)limit.rlim_cur;
+    if (max_fd <= 0)
+        max_fd = 256;
+
+    {
+        long fd;
+        for (fd = 3; fd < max_fd; fd++)
+            (void)close((int)fd);
+    }
+}
 
 static void usage(FILE *out)
 {
@@ -39,6 +60,7 @@ int main(int argc, char **argv)
     }
 
     shell_init(&sh);
+    close_inherited_descriptors();
 
     if (argc >= 2 && strcmp(argv[1], "-c") == 0) {
         if (argc < 3) {
