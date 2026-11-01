@@ -55,7 +55,9 @@ int main(int argc, char **argv)
             shell_error("%s: cannot open script file", argv[1]);
             return 127;
         }
-        if (fcntl(fileno(f), F_SETFD, FD_CLOEXEC) == -1) {
+        int flags = fcntl(fileno(f), F_GETFD, 0);
+        if (flags == -1 || fcntl(fileno(f), F_SETFD,
+                                 flags | FD_CLOEXEC) == -1) {
              shell_error("%s: cannot set close-on-exec", argv[1]);
              fclose(f);
              shell_cleanup(&sh);
