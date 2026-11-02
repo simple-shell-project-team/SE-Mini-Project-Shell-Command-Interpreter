@@ -364,6 +364,11 @@ ParseResult parse_next_pipeline(const char **cursor, int last_status,
          * Handle pipeline separators.
          * Save the current command and begin parsing the next one.
          */
+        if (c == '|' && p[1] == '|') {
+            fail(pl, &cur, cursor, errbuf, errlen,
+                 "syntax error: '||' is not supported");
+            return PARSE_ERROR;
+        }
         if (c == '|') {
             if (cur.argc == 0) {
                 fail(pl, &cur, cursor, errbuf, errlen,
@@ -386,12 +391,6 @@ ParseResult parse_next_pipeline(const char **cursor, int last_status,
             if (redirection == '<' && cur.infile != NULL) {
                 fail(pl, &cur, cursor, errbuf, errlen,
                      "syntax error: duplicate input redirection");
-                return PARSE_ERROR;
-            }
-
-            if (redirection == '>' && cur.outfile != NULL) {
-                fail(pl, &cur, cursor, errbuf, errlen,
-                     "syntax error: duplicate output redirection");
                 return PARSE_ERROR;
             }
 
@@ -419,15 +418,17 @@ ParseResult parse_next_pipeline(const char **cursor, int last_status,
                 free(filename);
                 fail(pl, &cur, cursor, errbuf, errlen,
                      redirection == '<'
-                         ? "syntax error: expected filename after '<'"
+                         ? "syntax error: missing file name after '<'"
                          : "syntax error: expected filename after '>'");
                 return PARSE_ERROR;
             }
 
-            if (redirection == '<')
+            if (redirection == '<') {
                 cur.infile = filename;
-            else
+            } else {
+                free(cur.outfile);
                 cur.outfile = filename;
+            }
         } else {
             /* ordinary word */
             char *word = NULL;

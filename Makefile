@@ -60,7 +60,9 @@ portability:
 
 # Functional / integration / system tests (need ./mysh)
 test: all unit-test
+	python3 tests/check_fr_coverage.py
 	bash tests/run_tests.sh
+	python3 tests/signal_test.py
 	python3 tests/interactive_test.py
 	$(MAKE) fuzz
 
